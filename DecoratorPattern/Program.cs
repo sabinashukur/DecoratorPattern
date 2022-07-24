@@ -15,9 +15,9 @@ class FileDataSource : IDataSource
     public string _path;
     protected string _fileName { get; set; }
 
-    public FileDataSource(string fileName)
+    public FileDataSource()
     {
-        _fileName = fileName;
+        _fileName = "word";
         _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), _fileName + ".txt");
     }
 
@@ -56,7 +56,6 @@ class FileDataSource : IDataSource
         public EncryptionDecorator(IDataSource source) : base(source) { }
         public override void WriteData(string data)
         {
-            base.WriteData(data);
             var dataBytes = Encoding.Default.GetBytes(data);
             byte code = 4;
             for (int i = 0; i < dataBytes.Length; i++)
@@ -82,7 +81,8 @@ class FileDataSource : IDataSource
         public CompressionDecorator(IDataSource source) : base(source) { }
         public string CompressString(string text)
         {
-            FileInfo fileToCompress = new(@"C:\Users\Documents\Desktop\word.txt");
+            string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "word.txt");
+            FileInfo fileToCompress = new(path);
             using (FileStream originalFileStream = fileToCompress.OpenRead())
             {
                 if ((File.GetAttributes(fileToCompress.FullName) & FileAttributes.Hidden) != FileAttributes.Hidden & fileToCompress.Extension != ".gz")
@@ -92,59 +92,64 @@ class FileDataSource : IDataSource
                         using (GZipStream compressionStream = new GZipStream(compressedFileStream, CompressionMode.Compress))
                         {
                             originalFileStream.CopyTo(compressionStream);
-                            Console.WriteLine("Zip succesfully done");
+                            Console.WriteLine("Zip succesfully is created");
                         }
                     }
                 }
             }
-            File.Delete(@"C:\Users\Documents\Desktop\word.txt");
+            File.Delete(path);
             return "";
         }
-        public static byte[] Decompress(byte[] bytes)
+        public string DecompressString()
         {
-            using (var memoryStream = new MemoryStream(bytes))
-            {
+            string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "word.txt"+ ".gz");
 
-                using (var outputStream = new MemoryStream())
+            try
+            {
+                FileInfo fileToDecompress = new FileInfo(path);
+                using (FileStream originalFileStream = fileToDecompress.OpenRead())
                 {
-                    using (var decompressStream = new GZipStream(memoryStream, CompressionMode.Decompress))
-                    {
-                        decompressStream.CopyTo(outputStream);
-                    }
-                    return outputStream.ToArray();
+                    string currentFileName = fileToDecompress.FullName;
+                    string newFileName = currentFileName.Remove(currentFileName.Length - fileToDecompress.Extension.Length);
+
+                    using (FileStream decompressedFileStream = File.Create(newFileName))
+                    using (GZipStream decompressionStream = new GZipStream(originalFileStream, CompressionMode.Decompress))
+                        decompressionStream.CopyTo(decompressedFileStream);
+
+                    File.Delete(fileToDecompress.Name);
                 }
+
             }
+            catch (Exception) { return ""; }
+            return "";
         }
         public override void WriteData(string data)
         {
             CompressString(data);
 
         }
-
         public override string ReadData()
         {
-            var data = base.ReadData();
-            var dataBytes = Encoding.Default.GetBytes(data);
-            var decompressedData = Decompress(dataBytes);
-            return Encoding.Default.GetString(decompressedData);
+            DecompressString();
+            return base.ReadData();
 
         }
     }
     class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
 
-            var data = "Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!Salam,muellim!!!!!";
-            IDataSource dataSource = new FileDataSource("word");
+            var data = "Salam,muellim!Salam, muellim!Salam, muellim!";
+            IDataSource dataSource = new FileDataSource();
             dataSource.WriteData(data);
+
             dataSource = new EncryptionDecorator(dataSource);
             dataSource.WriteData(data);
 
             dataSource = new CompressionDecorator(dataSource);
             dataSource.WriteData(data);
-
-            //Console.WriteLine(dataSource.ReadData());
+            Console.WriteLine(dataSource.ReadData());
         }
     }
 }
